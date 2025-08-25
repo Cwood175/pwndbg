@@ -1,19 +1,5 @@
 name: Tests
-on:
-  push:
-    branches:
-      - dev
-    paths:
-      - '**'
-      - '!mkdocs.yml'
-      - '!docs/**'
-      - '!*.md'
-  pull_request:
-    paths:
-      - '**'
-      - '!mkdocs.yml'
-      - '!docs/**'
-      - '!*.md'
+on: push
 jobs:
   tests-using-nix:
     strategy:
