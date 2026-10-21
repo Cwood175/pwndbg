@@ -7,10 +7,7 @@ from pathlib import Path
 from subprocess import CompletedProcess
 from typing import List
 
-from ...host import TestHost
-from ...host import TestResult
-from ...host import _collection_from_pytest
-from ...host import _result_from_pytest
+from ...host import TestHost, TestResult, _collection_from_pytest, _result_from_pytest
 
 
 class GDBTestHost(TestHost):
@@ -99,6 +96,10 @@ class GDBTestHost(TestHost):
         env["TESTS_PATH"] = str(self._pytest_root)
 
         result = self._run_gdb("tests.host.gdb.pytests_collect", env=env)
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"pytests_collect failed (returncode={result.returncode}): {result.stderr}"
+            )
         names = _collection_from_pytest(result, self._pwndbg_root, self._pytest_root)
 
         # We execute from Pwndbg root, so we need to prepend tests/ to the names.

@@ -4,12 +4,7 @@ import re
 from enum import Enum
 from pathlib import Path
 from subprocess import CompletedProcess
-from typing import Any
-from typing import Awaitable
-from typing import Callable
-from typing import Coroutine
-from typing import Dict
-from typing import List
+from typing import Any, Awaitable, Callable, Coroutine, Dict, List
 
 
 def _collection_from_pytest(
@@ -21,7 +16,19 @@ def _collection_from_pytest(
     tests_collect_output = result.stdout
 
     if result.returncode != 0:
-        raise RuntimeError(f"collection command failed: {result.stderr} {result.stdout}")
+        # Treat known curses/terminfo initialization warning as non-fatal.
+        # In some CI/headless environments pytest (via curses) may emit:
+        # "setupterm: could not find terminfo database". Don't fail collection for that.
+        stderr_text = result.stderr or ""
+        if "setupterm: could not find terminfo database" in stderr_text:
+            import warnings
+
+            warnings.warn(
+                "pytest collection produced a curses/terminfo warning; continuing...",
+                RuntimeWarning,
+            )
+        else:
+            raise RuntimeError(f"collection command failed: {result.stderr} {result.stdout}")
 
     # Extract the test names from the output using regex
     #

@@ -58,26 +58,59 @@ def main() -> None:
     except gdb.error as e:
         print(f"Warning: Cannot set gdb charset: '{e}'")
 
-    import pwndbg  # noqa: F811
-    import pwndbg.dbg.gdb
+    # Import pwndbg guarded so import-time errors (e.g. SyntaxError in downstream
+    # modules) don't abort gdb initialization.
+    pwndbg_loaded = False
+    try:
+        import pwndbg  # noqa: F811
+        import pwndbg.dbg.gdb
 
-    pwndbg.dbg = pwndbg.dbg_mod.gdb.GDB()
-    pwndbg.dbg.setup()
+        pwndbg_loaded = True
+    except (ImportError, SyntaxError) as e:
+        print(f"Warning: pwndbg failed to import: '{e}'")
 
-    import pwndbg.log
-    import pwndbg.profiling
+    if pwndbg_loaded:
+        try:
+            pwndbg.dbg = pwndbg.dbg_mod.gdb.GDB()
+            pwndbg.dbg.setup()
+        except Exception as e:
+            print(f"Warning: pwndbg failed during setup: '{e}'")
+            pwndbg_loaded = False
+
+    if pwndbg_loaded:
+        try:
+            import pwndbg.log
+            import pwndbg.profiling
+        except (ImportError, SyntaxError) as e:
+            print(f"Warning: pwndbg submodules failed to import: '{e}'")
+            pwndbg_loaded = False
 
     # ColorFormatter relies on pwndbg being loaded, so we can't set it up until now
-    handler.setFormatter(pwndbg.log.ColorFormatter())
+    if pwndbg_loaded:
+        try:
+            handler.setFormatter(pwndbg.log.ColorFormatter())
+        except Exception as e:
+            print(f"Warning: failed to set pwndbg log formatter: '{e}'")
 
-    pwndbg.profiling.init(profiler, start_time)
-    if os.environ.get("PWNDBG_PROFILE") == "1":
-        pwndbg.profiling.profiler.stop("pwndbg-load.pstats")
-        pwndbg.profiling.profiler.start()
+    if pwndbg_loaded:
+        try:
+            pwndbg.profiling.init(profiler, start_time)
+            if os.environ.get("PWNDBG_PROFILE") == "1":
+                pwndbg.profiling.profiler.stop("pwndbg-load.pstats")
+                pwndbg.profiling.profiler.start()
+        except Exception as e:
+            print(f"Warning: pwndbg profiling failed to initialize: '{e}'")
 
     # We need reimport it here so that it's available at the global scope
-    # when some starts a Python interpreter in GDB
-    gdb.execute("py import pwndbg")
+    # when some starts a Python interpreter in GDB. Guard the forced import so
+    # we don't trigger the same import-time error again.
+    if pwndbg_loaded:
+        try:
+            gdb.execute("py import pwndbg")
+        except gdb.error as e:
+            print(f"Warning: Could not execute 'py import pwndbg' in gdb: '{e}'")
+        except Exception as e:
+            print(f"Warning: 'py import pwndbg' failed: '{e}'")
 
 
 def main_try():

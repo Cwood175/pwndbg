@@ -1,19 +1,5 @@
 name: Tests
-on:
-  push:
-    branches:
-      - dev
-    paths:
-      - '**'
-      - '!mkdocs.yml'
-      - '!docs/**'
-      - '!*.md'
-  pull_request:
-    paths:
-      - '**'
-      - '!mkdocs.yml'
-      - '!docs/**'
-      - '!*.md'
+on: push
 jobs:
   tests-using-nix:
     strategy:
@@ -121,12 +107,12 @@ jobs:
       run: |
         sudo sysctl -w kernel.yama.ptrace_scope=0
         ./tests.sh -d gdb -g gdb
-  
+
     - name: Run DBG Tests on GDB
       run: |
         sudo sysctl -w kernel.yama.ptrace_scope=0
         ./tests.sh -d gdb -g dbg
-    
+
     - name: Run DBG Tests on LLDB
       if: matrix.os != 'ubuntu-22.04'
       run: |

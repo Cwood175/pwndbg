@@ -16,9 +16,7 @@ from pathlib import Path
 
 import ziglang
 
-from .host import TestHost
-from .host import TestResult
-from .host import TestStatus
+from .host import TestHost, TestResult, TestStatus
 
 
 def main():
@@ -158,21 +156,48 @@ def get_gdb_host(args: argparse.Namespace, local_pwndbg_root: Path) -> TestHost:
             sys.exit(1)
     elif args.group == Group.CROSS_ARCH_USER:
         # Some systems don't ship 'gdb-multiarch', but support multiple
-        # architectures in their regular binaries. Try the regular GDB.
+        # architectures in their regular binaries. Try available GDBs.
         supports_arches = "py import os; archs = ['i386', 'aarch64', 'arm', 'mips', 'riscv', 'sparc']; os._exit(3) if len([arch for arch in archs if arch in gdb.architecture_names()]) == len(archs) else os._exit(2)"
 
-        gdb_path_str = shutil.which("pwndbg")
-        if gdb_path_str is None:
-            print("ERROR: No 'pwndbg' executables in path")
+        # Prefer pwndbg if available, but fall back to gdb-multiarch or gdb.
+        candidates = []
+        pwndbg_path = shutil.which("pwndbg")
+        if pwndbg_path:
+            candidates.append(pwndbg_path)
+        gdb_multi = shutil.which("gdb-multiarch")
+        if gdb_multi:
+            candidates.append(gdb_multi)
+        gdb_plain = shutil.which("gdb")
+        if gdb_plain:
+            candidates.append(gdb_plain)
+
+        if not candidates:
+            print("ERROR: No 'pwndbg' or 'gdb' executables in path")
             sys.exit(1)
 
-        result = subprocess.run([gdb_path_str, "-nx", "-ex", supports_arches], capture_output=True)
-        # GDB supports cross architecture targets
-        if result.returncode == 3:
-            gdb_path = Path(gdb_path_str)
-        else:
-            print("ERROR: 'pwndbg' does not support cross architecture targets")
-            sys.exit(1)
+        gdb_path = None
+        # Probe candidates for explicit cross-arch support.
+        for candidate in candidates:
+            try:
+                result = subprocess.run(
+                    [candidate, "-nx", "-ex", supports_arches], capture_output=True
+                )
+            except FileNotFoundError:
+                continue
+            if result.returncode == 3:
+                gdb_path = Path(candidate)
+                break
+
+        # If none reported full support, pick a reasonable fallback (prefer pwndbg)
+        if gdb_path is None:
+            if pwndbg_path:
+                gdb_path = Path(pwndbg_path)
+            else:
+                gdb_path = Path(candidates[0])
+            print(
+                "WARNING: Selected GDB executable does not report full cross-arch support, continuing with fallback:",
+                str(gdb_path),
+            )
     else:
         # Use the regular system GDB.
         gdb_path_str = shutil.which("pwndbg")
