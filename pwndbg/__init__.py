@@ -11,22 +11,30 @@ import pwndbg.gdblib
 from pwndbg.commands import load_commands
 from pwndbg.gdblib import load_gdblib
 
-load_commands()
-load_gdblib()
 
-# TODO: Convert these to gdblib modules and remove this
-try:
-    import pwndbg.disasm
-    import pwndbg.disasm.arm
-    import pwndbg.disasm.jump
-    import pwndbg.disasm.mips
-    import pwndbg.disasm.ppc
-    import pwndbg.disasm.riscv
-    import pwndbg.disasm.sparc
-    import pwndbg.disasm.x86
-    import pwndbg.heap
-except ModuleNotFoundError:
-    pass
+# Defer loading commands/gdblib and side-effectful modules until runtime to avoid
+# import-time initialization that can trigger incompatible imports or register
+# runtime features (e.g. heap tracker). Call pwndbg.init() explicitly when
+# running under gdb to perform full initialization.
+def init():
+    """Deferred initialization: load commands, gdblib and optional modules."""
+    load_commands()
+    load_gdblib()
+
+    # TODO: Convert these to gdblib modules and remove this
+    try:
+        import pwndbg.disasm
+        import pwndbg.disasm.arm
+        import pwndbg.disasm.jump
+        import pwndbg.disasm.mips
+        import pwndbg.disasm.ppc
+        import pwndbg.disasm.riscv
+        import pwndbg.disasm.sparc
+        import pwndbg.disasm.x86
+        import pwndbg.heap
+    except ModuleNotFoundError:
+        pass
+
 
 import pwndbg.exception
 import pwndbg.lib.version
@@ -35,12 +43,12 @@ import pwndbg.ui
 __version__ = pwndbg.lib.version.__version__
 version = __version__
 
-from pwndbg.gdblib import gdb_version
-from pwndbg.gdblib import prompt
+from pwndbg.gdblib import gdb_version, prompt
 
 prompt.set_prompt()
 
-pre_commands = """
+pre_commands = (
+    """
 set confirm off
 set verbose off
 set pagination off
@@ -55,8 +63,8 @@ handle SIGALRM nostop print nopass
 handle SIGBUS  stop   print nopass
 handle SIGPIPE nostop print nopass
 handle SIGSEGV stop   print nopass
-""".strip() % (
-    pwndbg.ui.get_window_size()[1]
+""".strip()
+    % (pwndbg.ui.get_window_size()[1])
 )
 
 # See https://github.com/pwndbg/pwndbg/issues/808

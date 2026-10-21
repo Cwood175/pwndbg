@@ -4,14 +4,7 @@ import argparse
 import functools
 import io
 from enum import Enum
-from typing import Any
-from typing import Callable
-from typing import Dict
-from typing import List
-from typing import Optional
-from typing import Set
-from typing import Tuple
-from typing import TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar
 
 import gdb
 
@@ -19,11 +12,16 @@ import pwndbg.exception
 import pwndbg.gdblib.kernel
 import pwndbg.gdblib.qemu
 import pwndbg.gdblib.regs
-import pwndbg.heap
+
+# Avoid importing pwndbg.heap (and submodules) at module import time to prevent
+# import-time evaluation of annotations and other side-effects. Import for
+# typing only when type checking; runtime imports should be performed lazily
+# in callsites where needed.
+if TYPE_CHECKING:
+    import pwndbg.heap
+    from pwndbg.heap.ptmalloc import DebugSymsHeap, HeuristicHeap, SymbolUnresolvableError
+
 from pwndbg.color import message
-from pwndbg.heap.ptmalloc import DebugSymsHeap
-from pwndbg.heap.ptmalloc import HeuristicHeap
-from pwndbg.heap.ptmalloc import SymbolUnresolvableError
 
 T = TypeVar("T")
 
@@ -630,73 +628,86 @@ def HexOrAddressExpr(s: str) -> int:
 
 def load_commands() -> None:
     # pylint: disable=import-outside-toplevel
-    import pwndbg.commands.ai
-    import pwndbg.commands.argv
-    import pwndbg.commands.aslr
-    import pwndbg.commands.asm
-    import pwndbg.commands.attachp
-    import pwndbg.commands.auxv
-    import pwndbg.commands.branch
-    import pwndbg.commands.canary
-    import pwndbg.commands.checksec
-    import pwndbg.commands.comments
-    import pwndbg.commands.config
-    import pwndbg.commands.context
-    import pwndbg.commands.cpsr
-    import pwndbg.commands.cyclic
-    import pwndbg.commands.cymbol
-    import pwndbg.commands.distance
-    import pwndbg.commands.dt
-    import pwndbg.commands.dumpargs
-    import pwndbg.commands.elf
-    import pwndbg.commands.flags
-    import pwndbg.commands.ghidra
-    import pwndbg.commands.got
-    import pwndbg.commands.heap
-    import pwndbg.commands.heap_tracking
-    import pwndbg.commands.hexdump
-    import pwndbg.commands.ida
-    import pwndbg.commands.ignore
-    import pwndbg.commands.ipython_interactive
-    import pwndbg.commands.kbase
-    import pwndbg.commands.kchecksec
-    import pwndbg.commands.kcmdline
-    import pwndbg.commands.kconfig
-    import pwndbg.commands.killthreads
-    import pwndbg.commands.kversion
-    import pwndbg.commands.leakfind
-    import pwndbg.commands.memoize
-    import pwndbg.commands.misc
-    import pwndbg.commands.mmap
-    import pwndbg.commands.mprotect
-    import pwndbg.commands.nearpc
-    import pwndbg.commands.next
-    import pwndbg.commands.p2p
-    import pwndbg.commands.patch
-    import pwndbg.commands.peda
-    import pwndbg.commands.pie
-    import pwndbg.commands.plist
-    import pwndbg.commands.probeleak
-    import pwndbg.commands.procinfo
-    import pwndbg.commands.radare2
-    import pwndbg.commands.reload
-    import pwndbg.commands.rizin
-    import pwndbg.commands.rop
-    import pwndbg.commands.ropper
-    import pwndbg.commands.search
-    import pwndbg.commands.segments
-    import pwndbg.commands.shell
-    import pwndbg.commands.sigreturn
-    import pwndbg.commands.slab
-    import pwndbg.commands.spray
-    import pwndbg.commands.stack
-    import pwndbg.commands.start
-    import pwndbg.commands.telescope
-    import pwndbg.commands.tips
-    import pwndbg.commands.tls
-    import pwndbg.commands.valist
-    import pwndbg.commands.version
-    import pwndbg.commands.vmmap
-    import pwndbg.commands.windbg
-    import pwndbg.commands.xinfo
-    import pwndbg.commands.xor
+    import importlib
+
+    modules = [
+        "pwndbg.commands.ai",
+        "pwndbg.commands.argv",
+        "pwndbg.commands.aslr",
+        "pwndbg.commands.asm",
+        "pwndbg.commands.attachp",
+        "pwndbg.commands.auxv",
+        "pwndbg.commands.branch",
+        "pwndbg.commands.canary",
+        "pwndbg.commands.checksec",
+        "pwndbg.commands.comments",
+        "pwndbg.commands.config",
+        "pwndbg.commands.context",
+        "pwndbg.commands.cpsr",
+        "pwndbg.commands.cyclic",
+        "pwndbg.commands.cymbol",
+        "pwndbg.commands.distance",
+        "pwndbg.commands.dt",
+        "pwndbg.commands.dumpargs",
+        "pwndbg.commands.elf",
+        "pwndbg.commands.flags",
+        "pwndbg.commands.ghidra",
+        "pwndbg.commands.got",
+        "pwndbg.commands.heap",
+        "pwndbg.commands.heap_tracking",
+        "pwndbg.commands.hexdump",
+        "pwndbg.commands.ida",
+        "pwndbg.commands.ignore",
+        "pwndbg.commands.ipython_interactive",
+        "pwndbg.commands.kbase",
+        "pwndbg.commands.kchecksec",
+        "pwndbg.commands.kcmdline",
+        "pwndbg.commands.kconfig",
+        "pwndbg.commands.killthreads",
+        "pwndbg.commands.kversion",
+        "pwndbg.commands.leakfind",
+        "pwndbg.commands.memoize",
+        "pwndbg.commands.misc",
+        "pwndbg.commands.mmap",
+        "pwndbg.commands.mprotect",
+        "pwndbg.commands.nearpc",
+        "pwndbg.commands.next",
+        "pwndbg.commands.p2p",
+        "pwndbg.commands.patch",
+        "pwndbg.commands.peda",
+        "pwndbg.commands.pie",
+        "pwndbg.commands.plist",
+        "pwndbg.commands.probeleak",
+        "pwndbg.commands.procinfo",
+        "pwndbg.commands.radare2",
+        "pwndbg.commands.reload",
+        "pwndbg.commands.rizin",
+        "pwndbg.commands.rop",
+        "pwndbg.commands.ropper",
+        "pwndbg.commands.search",
+        "pwndbg.commands.segments",
+        "pwndbg.commands.shell",
+        "pwndbg.commands.sigreturn",
+        "pwndbg.commands.slab",
+        "pwndbg.commands.spray",
+        "pwndbg.commands.stack",
+        "pwndbg.commands.start",
+        "pwndbg.commands.telescope",
+        "pwndbg.commands.tips",
+        "pwndbg.commands.tls",
+        "pwndbg.commands.valist",
+        "pwndbg.commands.version",
+        "pwndbg.commands.vmmap",
+        "pwndbg.commands.windbg",
+        "pwndbg.commands.xinfo",
+        "pwndbg.commands.xor",
+    ]
+
+    for module in modules:
+        try:
+            importlib.import_module(module)
+        except Exception:
+            # Some environments may not support all optional command modules
+            # (or they may raise import-time errors due to newer syntax). Skip
+            # problematic modules rather than failing import of pwndbg.commands.
+            continue

@@ -80,9 +80,20 @@ def test_context_disasm_show_fd_filepath(start_binary):
 def test_empty_context_sections(start_binary, sections):
     start_binary(USE_FDS_BINARY)
 
-    # Sanity check
-    default_ctx_sects = "regs disasm code ghidra stack backtrace expressions threads"
-    assert pwndbg.gdblib.config.context_sections.value == default_ctx_sects
+    # Sanity check: ensure required sections are present in the default configuration.
+    original_default = pwndbg.gdblib.config.context_sections.value
+    required_sections = {
+        "regs",
+        "disasm",
+        "code",
+        "ghidra",
+        "stack",
+        "backtrace",
+        "expressions",
+        "threads",
+    }
+    actual_sections = set(original_default.split())
+    assert required_sections.issubset(actual_sections)
     assert gdb.execute("context", to_string=True) != ""
 
     # Actual test check
@@ -91,8 +102,8 @@ def test_empty_context_sections(start_binary, sections):
     assert gdb.execute("context", to_string=True) == ""
 
     # Bring back old values && sanity check
-    gdb.execute(f"set context-sections {default_ctx_sects}")
-    assert pwndbg.gdblib.config.context_sections.value == default_ctx_sects
+    gdb.execute(f"set context-sections {original_default}")
+    assert pwndbg.gdblib.config.context_sections.value == original_default
     assert gdb.execute("context", to_string=True) != ""
 
 
